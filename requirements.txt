@@ -4,3 +4,5 @@ pyaesni
 psutil
 telethon
 html_telegraph_poster
+lxml
+lxml_html_clean
