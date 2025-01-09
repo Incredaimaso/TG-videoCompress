@@ -63,6 +63,7 @@ async def dl_link(event):
     nn = await xxx.edit(
         "**🗜 Compressing...\nPlease wait...**"
     )
+    processing_file_name = newFile
     
     async def update_status():
         while True:
@@ -232,6 +233,7 @@ async def encod(event):
         nn = await e.edit(
             "**🗜 Compressing...\nPlease wait...**"
         )
+        processing_file_name = newFile
         
         async def update_status():
             while True:
