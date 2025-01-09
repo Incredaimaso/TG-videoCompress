@@ -1,0 +1,17 @@
+user:
+  name: cevilion 
+  github: incredaimaso
+
+language: "python"
+
+commands:
+  build:
+    - "pip3 install -r requirements.txt"
+  package:
+    - "build-essential python3-dev git curl nano ffmpeg inxi wget"
+    
+  start:
+    - "python3 -m bot"
+
+env:
+  - "ENVIRONMENT=production"
