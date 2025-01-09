@@ -61,18 +61,34 @@ async def dl_link(event):
     hehe = f"{out};{dl};0"
     wah = code(hehe)
     nn = await xxx.edit(
-        "**🗜 Compressing...**",
-        buttons=[
-            [Button.inline("STATS", data=f"stats{wah}")],
-            [Button.inline("CANCEL", data=f"skip{wah}")],
-        ],
+        "**🗜 Compressing...\nPlease wait...**"
     )
+    
+    async def update_status():
+        while True:
+            try:
+                if Path(out).exists():
+                    ot = hbs(int(Path(out).stat().st_size))
+                    ov = hbs(int(Path(dl).stat().st_size))
+                    processing_file_name = dl.replace(f"downloads/", "").replace(f"_", " ")
+                    await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded: {ov}\nCompressed: {ot}")
+                await asyncio.sleep(4)  # 4 second update interval
+            except Exception as e:
+                LOGS.info(str(e))
+                break
+
+    status_task = asyncio.create_task(update_status())
+    
     cmd = f"""ffmpeg -i "{dl}" {ffmpegcode[0]} "{out}" -y"""
     process = await asyncio.create_subprocess_shell(
         cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     stdout, stderr = await process.communicate()
     er = stderr.decode()
+    try:
+        status_task.cancel()  # Stop the status updates
+    except:
+        pass
     try:
         if er:
             await xxx.edit(str(er) + "\n\n**ERROR**")
@@ -204,18 +220,34 @@ async def encod(event):
         hehe = f"{out};{dl};0"
         wah = code(hehe)
         nn = await e.edit(
-            "**🗜 Compressing...**",
-            buttons=[
-                [Button.inline("STATS", data=f"stats{wah}")],
-                [Button.inline("CANCEL", data=f"skip{wah}")],
-            ],
+            "**🗜 Compressing...\nPlease wait...**"
         )
+        
+        async def update_status():
+            while True:
+                try:
+                    if Path(out).exists():
+                        ot = hbs(int(Path(out).stat().st_size))
+                        ov = hbs(int(Path(dl).stat().st_size))
+                        processing_file_name = dl.replace(f"downloads/", "").replace(f"_", " ")
+                        await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded: {ov}\nCompressed: {ot}")
+                    await asyncio.sleep(4)  # 4 second update interval
+                except Exception as e:
+                    LOGS.info(str(e))
+                    break
+
+        status_task = asyncio.create_task(update_status())
+        
         cmd = f"""ffmpeg -i "{dl}" {ffmpegcode[0]} "{out}" -y"""
         process = await asyncio.create_subprocess_shell(
             cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await process.communicate()
         er = stderr.decode()
+        try:
+            status_task.cancel()  # Stop the status updates
+        except:
+            pass
         try:
             if er:
                 await e.edit(str(er) + "\n\n**ERROR**")

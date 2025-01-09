@@ -72,7 +72,7 @@ def hbs(size):
 async def progress(current, total, event, start, type_of_ps, file=None):
     now = time.time()
     diff = now - start
-    if round(diff % 10.00) == 0 or current == total:
+    if round(diff % 4.00) == 0 or current == total:  # Changed from 10.00 to 4.00 seconds
         percentage = current * 100 / total
         speed = current / diff
         time_to_completion = round((total - current) / speed) * 1000
@@ -235,7 +235,16 @@ async def getlogs(e):
 async def getthumb(e):
     if str(e.sender_id) not in OWNER and e.sender_id !=DEV:
         return
-    await e.client.send_file(e.chat_id, file="/bot/thumb.jpg", force_document=False, caption="**Your Current Thumbnail.**")
+    try:
+        # Use relative path instead of absolute path
+        await e.client.send_file(
+            e.chat_id, 
+            file="thumb.jpg",  # Changed from /bot/thumb.jpg
+            force_document=False, 
+            caption="**Your Current Thumbnail.**"
+        )
+    except Exception as er:
+        await e.reply(f"**Error getting thumbnail:**\n\n`{str(er)}`")
 
 
 async def getcode(e):
