@@ -66,29 +66,39 @@ async def dl_link(event):
     processing_file_name = newFile
     
     async def update_status():
+        last_msg = ""
         while True:
             try:
                 # Check for download file first
                 if Path(dl).exists():
                     ov = hbs(int(Path(dl).stat().st_size))
-                    # Set initial progress
-                    await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B")
+                    cur_msg = f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B"
+                    
+                    # Then check for output file
+                    if Path(out).exists():
+                        ot = hbs(int(Path(out).stat().st_size))
+                        ov = hbs(int(Path(dl).stat().st_size))
+                        percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
+                        cur_msg = (
+                            f"**🗜 Compressing: {percentage}%**\n\n"
+                            f"File: {processing_file_name}\n"
+                            f"Downloaded Size: {ov}\n"
+                            f"Compressed Size: {ot}"
+                        )
+                    
+                    # Only edit if message content has changed
+                    if cur_msg != last_msg:
+                        try:
+                            await nn.edit(cur_msg)
+                            last_msg = cur_msg
+                        except Exception as e:
+                            LOGS.info(f"Edit error: {str(e)}")
+                    
+                await asyncio.sleep(3)  # Increase sleep time to 3 seconds
                 
-                # Then check for output file
-                if Path(out).exists():
-                    ot = hbs(int(Path(out).stat().st_size))
-                    ov = hbs(int(Path(dl).stat().st_size))
-                    percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
-                    await nn.edit(
-                        f"**🗜 Compressing: {percentage}%**\n\n"
-                        f"File: {processing_file_name}\n"
-                        f"Downloaded Size: {ov}\n"
-                        f"Compressed Size: {ot}"
-                    )
-                await asyncio.sleep(2)  # Update every 2 seconds
             except Exception as e:
-                LOGS.info(str(e))
-                await asyncio.sleep(2)
+                LOGS.info(f"Update status error: {str(e)}")
+                await asyncio.sleep(3)
 
     status_task = asyncio.create_task(update_status())
     
@@ -236,29 +246,39 @@ async def encod(event):
         processing_file_name = newFile
         
         async def update_status():
+            last_msg = ""
             while True:
                 try:
                     # Check for download file first
                     if Path(dl).exists():
                         ov = hbs(int(Path(dl).stat().st_size))
-                        # Set initial progress
-                        await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B")
+                        cur_msg = f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B"
+                        
+                        # Then check for output file
+                        if Path(out).exists():
+                            ot = hbs(int(Path(out).stat().st_size))
+                            ov = hbs(int(Path(dl).stat().st_size))
+                            percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
+                            cur_msg = (
+                                f"**🗜 Compressing: {percentage}%**\n\n"
+                                f"File: {processing_file_name}\n"
+                                f"Downloaded Size: {ov}\n"
+                                f"Compressed Size: {ot}"
+                            )
+                        
+                        # Only edit if message content has changed
+                        if cur_msg != last_msg:
+                            try:
+                                await nn.edit(cur_msg)
+                                last_msg = cur_msg
+                            except Exception as e:
+                                LOGS.info(f"Edit error: {str(e)}")
+                        
+                    await asyncio.sleep(3)  # Increase sleep time to 3 seconds
                     
-                    # Then check for output file
-                    if Path(out).exists():
-                        ot = hbs(int(Path(out).stat().st_size))
-                        ov = hbs(int(Path(dl).stat().st_size))
-                        percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
-                        await nn.edit(
-                            f"**🗜 Compressing: {percentage}%**\n\n"
-                            f"File: {processing_file_name}\n"
-                            f"Downloaded Size: {ov}\n"
-                            f"Compressed Size: {ot}"
-                        )
-                    await asyncio.sleep(2)  # Update every 2 seconds
                 except Exception as e:
-                    LOGS.info(str(e))
-                    await asyncio.sleep(2)
+                    LOGS.info(f"Update status error: {str(e)}")
+                    await asyncio.sleep(3)
 
         status_task = asyncio.create_task(update_status())
         
