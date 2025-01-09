@@ -14,6 +14,11 @@
 # https://github.com/1Danish-00/CompressorQueue/blob/main/License> .
 
 from decouple import config
+import logging
+
+logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
+                   level=logging.INFO)
+LOGS = logging.getLogger(__name__)
 
 try:
     APP_ID = config("APP_ID", cast=int)

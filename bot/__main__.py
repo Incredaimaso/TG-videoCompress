@@ -148,8 +148,8 @@ async def _(event):
 
 
 @bot.on(events.NewMessage(incoming=True))
-async def _(e):
-    await encod(e)
+async def _(event):
+    await encod(event)  # Fix the event parameter
 
 
 async def something():
@@ -255,6 +255,7 @@ async def something():
                 await asyncio.sleep(3)
         except Exception as err:
             LOGS.info(err)
+            WORKING.clear()  # Clear working state on error
 
 
 ########### Start ############
