@@ -116,18 +116,20 @@ async def test(event):
 
 async def sysinfo(event):
     try:
-        zyl = "neofetch --stdout"
+        # Use a more basic system info command since neofetch might not be available
+        cmd = "uname -a && df -h && free -h"
         fetch = await asyncrunapp(
-            zyl,
+            cmd,
             stdout=asyncPIPE,
             stderr=asyncPIPE,
+            shell=True
         )
         stdout, stderr = await fetch.communicate()
         result = str(stdout.decode().strip()) \
             + str(stderr.decode().strip())
-        await event.reply("**" + result + "**")
-    except FileNotFoundError:
-        await event.reply("**Install neofetch first**")
+        await event.reply("**System Information:**\n\n" + result)
+    except Exception as e:
+        await event.reply(f"**Error:**\n`{str(e)}`")
 
 
 async def info(file, event):
@@ -210,9 +212,24 @@ async def coding(e):
 
 
 async def getlogs(e):
-    if str(e.sender_id) not in OWNER and e.sender_id !=DEV:
+    if str(e.sender_id) not in OWNER and e.sender_id != DEV:
         return
-    await e.client.send_file(e.chat_id, file=LOG_FILE_NAME, force_document=True)
+    try:
+        with open(LOG_FILE_NAME, 'r') as file:
+            log_content = file.read()
+            if len(log_content) > 4000:
+                # If log is too long, send as file
+                with open(LOG_FILE_NAME, 'rb') as doc:
+                    await e.client.send_file(
+                        e.chat_id,
+                        doc,
+                        caption="**Bot Logs**",
+                        force_document=True
+                    )
+            else:
+                await e.reply(f"**Bot Logs:**\n\n```{log_content}```")
+    except Exception as er:
+        await e.reply(f"**Error getting logs:**\n\n`{str(er)}`")
 
 
 async def getthumb(e):

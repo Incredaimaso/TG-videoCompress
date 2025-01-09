@@ -14,12 +14,14 @@ async def stats(e):
         out, dl, id = wh.split(";")
         ot = hbs(int(Path(out).stat().st_size))
         ov = hbs(int(Path(dl).stat().st_size))
-        processing_file_name = dl.replace("downloads/", "").replace("_", " ")
+        processing_file_name = dl.replace(f"downloads/", "").replace(f"_", " ")
         ans = f"Processing Media:\n{processing_file_name}\n\nDownloaded:\n{ov}\n\nCompressed:\n{ot}"
         await e.answer(ans, cache_time=0, alert=True)
     except Exception as er:
         LOGS.info(er)
-        await e.answer("Something Went Wrong.\nSend Media Again.", cache_time=0, alert=True)
+        await e.answer(
+            "Someting Went Wrong.\nSend Media Again.", cache_time=0, alert=True
+        )
 
 
 async def dl_link(event):
@@ -40,13 +42,13 @@ async def dl_link(event):
         return await event.reply(f"** Added {link} in QUEUE**")
     WORKING.append(1)
     s = dt.now()
-    xxx = await event.reply("**Downloading...**")
+    xxx = await event.reply("** Downloading...**")
     try:
         dl = await fast_download(xxx, link, name)
     except Exception as er:
         WORKING.clear()
         LOGS.info(er)
-        return await xxx.edit("**Download Failed**")
+        return
     es = dt.now()
     kk = dl.split("/")[-1]
     aa = kk.split(".")[-1]
@@ -104,8 +106,14 @@ async def dl_link(event):
     a1 = await info(dl, xxx)
     a2 = await info(out, xxx)
     dk = f"<b>File Name:</b> {newFile}\n\n<b>Original File Size:</b> {hbs(org)}\n<b>Encoded File Size:</b> {hbs(com)}\n<b>Encoded Percentage:</b> {per}\n\n<b>Get Mediainfo Here:</b> <a href='{a1}'>Before</a>/<a href='{a2}'>After</a>\n\n<i>Downloaded in {x}\nEncoded in {xx}\nUploaded in {xxx}</i>"
-    ds = await e.client.send_file(
-        e.chat_id, file=ok, force_document=True, caption=dk, link_preview=False, thumb=thum, parse_mode="html"
+    ds = await event.client.send_file(
+        event.chat_id, 
+        file=ok, 
+        force_document=True, 
+        caption=dk, 
+        link_preview=False, 
+        thumb=thum, 
+        parse_mode="html"
     )
     os.remove(dl)
     os.remove(out)
