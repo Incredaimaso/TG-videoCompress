@@ -138,13 +138,24 @@ async def _(e):
 
 @bot.on(events.NewMessage(incoming=True))
 async def _(event):
-        if str(event.sender_id) not in OWNER and event.sender_id !=DEV:
-            return await event.reply_text("**Sorry You're not An Authorised User!**")
-        if not event.photo:
-            return
-        os.system("rm thumb.jpg")
-        await event.client.download_media(event.media, file="/bot/thumb.jpg")
-        await event.reply("**Thumbnail Saved Successfully.**")
+    if str(event.sender_id) not in OWNER and event.sender_id !=DEV:
+        return await event.reply("**Sorry You're not An Authorised User!**")
+    if not event.photo:
+        return
+    try:
+        # Remove old thumbnail if exists
+        if os.path.exists("thumb.jpg"):
+            os.remove("thumb.jpg")
+        
+        # Download new thumbnail with correct path
+        thumb_path = await event.client.download_media(event.media, "thumb.jpg")
+        if thumb_path and os.path.exists(thumb_path):
+            await event.reply("**Thumbnail Saved Successfully.**")
+        else:
+            raise Exception("Failed to save thumbnail")
+    except Exception as e:
+        LOGS.info(f"Error saving thumbnail: {str(e)}")
+        await event.reply("**Error saving thumbnail!**")
 
 
 @bot.on(events.NewMessage(incoming=True))

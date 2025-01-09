@@ -15,14 +15,34 @@ WORKING = []
 QUEUE = {}
 OK = {}
 uptime = dt.now()
-os.system(f"wget {THUMB} -O thumb.jpg")
 
-if not os.path.isdir("downloads/"):
-    os.mkdir("downloads/")
-if not os.path.isdir("encode/"):
-    os.mkdir("encode/")
-if not os.path.isdir("thumb/"):
-    os.mkdir("thumb/")
+# Create required directories
+for directory in ["downloads", "encode", "thumb"]:
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+
+# Initialize default thumbnail
+def init_thumbnail():
+    try:
+        # Check if thumbnail exists
+        if not os.path.exists("thumb.jpg"):
+            # Try downloading from URL
+            if THUMB and THUMB.strip():
+                os.system(f"wget {THUMB} -O thumb.jpg")
+            
+            # If download fails or no URL, create blank thumbnail
+            if not os.path.exists("thumb.jpg") or os.path.getsize("thumb.jpg") == 0:
+                # Create a 1x1 pixel black image as fallback
+                os.system("convert -size 1x1 xc:black thumb.jpg")
+                LOGS.warning("Created blank thumbnail as fallback")
+    except Exception as e:
+        LOGS.error(f"Thumbnail initialization error: {str(e)}")
+        # Ensure a blank thumbnail exists
+        if not os.path.exists("thumb.jpg"):
+            os.system("convert -size 1x1 xc:black thumb.jpg")
+
+# Initialize thumbnail
+init_thumbnail()
 
 
 def stdr(seconds: int) -> str:
@@ -225,14 +245,17 @@ async def getthumb(e):
     if str(e.sender_id) not in OWNER and e.sender_id !=DEV:
         return
     try:
-        # Use relative path instead of absolute path
-        await e.client.send_file(
-            e.chat_id, 
-            file="thumb.jpg",  # Changed from /bot/thumb.jpg
-            force_document=False, 
-            caption="**Your Current Thumbnail.**"
-        )
+        if os.path.exists("thumb.jpg"):
+            await e.client.send_file(
+                e.chat_id, 
+                file="thumb.jpg",
+                force_document=False, 
+                caption="**Your Current Thumbnail.**"
+            )
+        else:
+            await e.reply("**No thumbnail found. Send a photo to set it.**")
     except Exception as er:
+        LOGS.info(f"Error sending thumbnail: {str(er)}")
         await e.reply(f"**Error getting thumbnail:**\n\n`{str(er)}`")
 
 
