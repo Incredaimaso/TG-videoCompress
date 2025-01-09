@@ -7,6 +7,7 @@ from .config import *
 from .worker import *
 from .devtools import *
 from .FastTelethon import *
+from .utils import info
 LOGS.info("Starting...")
 
 try:

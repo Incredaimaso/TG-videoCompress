@@ -72,7 +72,7 @@ def hbs(size):
 async def progress(current, total, event, start, type_of_ps, file=None):
     now = time.time()
     diff = now - start
-    if round(diff % 4.00) == 0 or current == total:  # Changed from 10.00 to 4.00 seconds
+    if round(diff % 2.00) == 0 or current == total:  # Changed from 4.00 to 2.00 seconds
         percentage = current * 100 / total
         speed = current / diff
         time_to_completion = round((total - current) / speed) * 1000
@@ -90,12 +90,15 @@ async def progress(current, total, event, start, type_of_ps, file=None):
                 ts(time_to_completion),
             )
         )
-        if file:
-            await event.edit(
-                "{}\n\nFile Name: {}\n\n{}".format(type_of_ps, file, tmp)
-            )
-        else:
-            await event.edit("{}\n\n{}".format(type_of_ps, tmp))
+        try:
+            if file:
+                await event.edit(
+                    "{}\n\nFile Name: {}\n\n{}".format(type_of_ps, file, tmp)
+                )
+            else:
+                await event.edit("{}\n\n{}".format(type_of_ps, tmp))
+        except Exception as e:
+            LOGS.info(str(e))
 
 
 async def test(event):
@@ -132,23 +135,9 @@ async def sysinfo(event):
         await event.reply(f"**Error:**\n`{str(e)}`")
 
 
-async def info(file, event):
-    process = subprocess.Popen(
-        ["mediainfo", file, "--Output=HTML"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    stdout, stderr = process.communicate()
-    out = stdout.decode()
-    client = TelegraphPoster(use_api=True)
-    client.create_api_token("TGVid-Comp-Mediainfo")
-    page = client.post(
-        title="TGVid-Comp-Mediainfo",
-        author=((await event.client.get_me()).first_name),
-        author_url=f"https://t.me/{((await event.client.get_me()).username)}",
-        text=out,
-    )
-    return page["url"]
+# Remove the info function since we won't be using mediainfo
+# async def info(file, event):
+#     ...
 
 
 def code(data):

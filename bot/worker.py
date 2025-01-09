@@ -67,15 +67,27 @@ async def dl_link(event):
     async def update_status():
         while True:
             try:
+                # Check for download file first
+                if Path(dl).exists():
+                    ov = hbs(int(Path(dl).stat().st_size))
+                    # Set initial progress
+                    await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B")
+                
+                # Then check for output file
                 if Path(out).exists():
                     ot = hbs(int(Path(out).stat().st_size))
                     ov = hbs(int(Path(dl).stat().st_size))
-                    processing_file_name = dl.replace(f"downloads/", "").replace(f"_", " ")
-                    await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded: {ov}\nCompressed: {ot}")
-                await asyncio.sleep(4)  # 4 second update interval
+                    percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
+                    await nn.edit(
+                        f"**🗜 Compressing: {percentage}%**\n\n"
+                        f"File: {processing_file_name}\n"
+                        f"Downloaded Size: {ov}\n"
+                        f"Compressed Size: {ot}"
+                    )
+                await asyncio.sleep(2)  # Update every 2 seconds
             except Exception as e:
                 LOGS.info(str(e))
-                break
+                await asyncio.sleep(2)
 
     status_task = asyncio.create_task(update_status())
     
@@ -119,9 +131,7 @@ async def dl_link(event):
     x = dtime
     xx = ts(int((ees - es).seconds) * 1000)
     xxx = ts(int((eees - ees).seconds) * 1000)
-    a1 = await info(dl, xxx)
-    a2 = await info(out, xxx)
-    dk = f"<b>File Name:</b> {newFile}\n\n<b>Original File Size:</b> {hbs(org)}\n<b>Encoded File Size:</b> {hbs(com)}\n<b>Encoded Percentage:</b> {per}\n\n<b>Get Mediainfo Here:</b> <a href='{a1}'>Before</a>/<a href='{a2}'>After</a>\n\n<i>Downloaded in {x}\nEncoded in {xx}\nUploaded in {xxx}</i>"
+    dk = f"<b>File Name:</b> {newFile}\n\n<b>Original File Size:</b> {hbs(org)}\n<b>Encoded File Size:</b> {hbs(com)}\n<b>Encoded Percentage:</b> {per}\n\n<i>Downloaded in {x}\nEncoded in {xx}\nUploaded in {xxx}</i>"
     ds = await event.client.send_file(
         event.chat_id, 
         file=ok, 
@@ -226,15 +236,27 @@ async def encod(event):
         async def update_status():
             while True:
                 try:
+                    # Check for download file first
+                    if Path(dl).exists():
+                        ov = hbs(int(Path(dl).stat().st_size))
+                        # Set initial progress
+                        await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B")
+                    
+                    # Then check for output file
                     if Path(out).exists():
                         ot = hbs(int(Path(out).stat().st_size))
                         ov = hbs(int(Path(dl).stat().st_size))
-                        processing_file_name = dl.replace(f"downloads/", "").replace(f"_", " ")
-                        await nn.edit(f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded: {ov}\nCompressed: {ot}")
-                    await asyncio.sleep(4)  # 4 second update interval
+                        percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
+                        await nn.edit(
+                            f"**🗜 Compressing: {percentage}%**\n\n"
+                            f"File: {processing_file_name}\n"
+                            f"Downloaded Size: {ov}\n"
+                            f"Compressed Size: {ot}"
+                        )
+                    await asyncio.sleep(2)  # Update every 2 seconds
                 except Exception as e:
                     LOGS.info(str(e))
-                    break
+                    await asyncio.sleep(2)
 
         status_task = asyncio.create_task(update_status())
         
@@ -278,9 +300,7 @@ async def encod(event):
         x = dtime
         xx = ts(int((ees - es).seconds) * 1000)
         xxx = ts(int((eees - ees).seconds) * 1000)
-        a1 = await info(dl, e)
-        a2 = await info(out, e)
-        dk = f"<b>File Name:</b> {newFile}\n\n<b>Original File Size:</b> {hbs(org)}\n<b>Encoded File Size:</b> {hbs(com)}\n<b>Encoded Percentage:</b> {per}\n\n<b>Get Mediainfo Here:</b> <a href='{a1}'>Before</a>/<a href='{a2}'>After</a>\n\n<i>Downloaded in {x}\nEncoded in {xx}\nUploaded in {xxx}</i>"
+        dk = f"<b>File Name:</b> {newFile}\n\n<b>Original File Size:</b> {hbs(org)}\n<b>Encoded File Size:</b> {hbs(com)}\n<b>Encoded Percentage:</b> {per}\n\n<i>Downloaded in {x}\nEncoded in {xx}\nUploaded in {xxx}</i>"
         ds = await e.client.send_file(
             e.chat_id, file=ok, force_document=True, caption=dk, link_preview=False, thumb=thum, parse_mode="html"
         )
