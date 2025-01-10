@@ -340,6 +340,9 @@ async def encod(event):
         ttt = time.time()
         await nn.delete()
         nnn = await e.client.send_message(e.chat_id, "** Uploading...**")
+        
+        # Optimize upload parameters
+        upload_chunk_size = 1024 * 1024 * 8  # 8MB chunks
         with open(out, "rb") as f:
             ok = await upload_file(
                 client=e.client,

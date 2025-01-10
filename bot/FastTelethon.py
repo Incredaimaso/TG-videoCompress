@@ -84,6 +84,8 @@ class DownloadSender:
     async def next(self) -> Optional[bytes]:
         if not self.remaining:
             return None
+        # Increase chunk size for faster downloads
+        self.request.limit = 1024 * 1024  # Increased to 1MB chunks
         result = await self.client._call(self.sender, self.request)
         self.remaining -= 1
         self.request.offset += self.stride
@@ -166,11 +168,12 @@ class ParallelTransferrer:
 
     @staticmethod
     def _get_connection_count(
-        file_size: int, max_count: int = 20, full_size: int = 100 * 1024 * 1024
+        file_size: int, max_count: int = 30, full_size: int = 100 * 1024 * 1024
     ) -> int:
+        # Increased max connections for faster uploads
         if file_size > full_size:
             return max_count
-        return math.ceil((file_size / full_size) * max_count)
+        return max(math.ceil((file_size / full_size) * max_count), 10)  # Minimum 10 connections
 
     async def _init_download(
         self, connections: int, file: TypeLocation, part_count: int, part_size: int
@@ -282,6 +285,7 @@ class ParallelTransferrer:
         return part_size, part_count, is_large
 
     async def upload(self, part: bytes) -> None:
+        # Optimize upload buffer handling
         await self.senders[self.upload_ticker].next(part)
         self.upload_ticker = (self.upload_ticker + 1) % len(self.senders)
 
@@ -296,7 +300,8 @@ class ParallelTransferrer:
         connection_count: Optional[int] = None,
     ) -> AsyncGenerator[bytes, None]:
         connection_count = connection_count or self._get_connection_count(file_size)
-        part_size = (part_size_kb or utils.get_appropriated_part_size(file_size)) * 1024
+        # Optimize part size for faster downloads
+        part_size = (part_size_kb or max(file_size // (1024 * 512), 512)) * 1024  # Minimum 512KB parts
         part_count = math.ceil(file_size / part_size)
         await self._init_download(connection_count, file, part_count, part_size)
 
@@ -319,7 +324,7 @@ parallel_transfer_locks: DefaultDict[int, asyncio.Lock] = defaultdict(
 )
 
 
-def stream_file(file_to_stream: BinaryIO, chunk_size=1024):
+def stream_file(file_to_stream: BinaryIO, chunk_size=1024 * 1024 * 8):  # 8MB chunks
     while True:
         data_read = file_to_stream.read(chunk_size)
         if not data_read:
@@ -337,7 +342,9 @@ async def _internal_transfer_to_telegram(
     uploader = ParallelTransferrer(client)
     part_size, part_count, is_large = await uploader.init_upload(file_id, file_size)
     buffer = bytearray()
-    for data in stream_file(response):
+    # Increase buffer size for faster uploads
+    buffer_size = 1024 * 1024 * 8  # 8MB buffer
+    for data in stream_file(response, chunk_size=buffer_size):
         if progress_callback:
             r = progress_callback(response.tell(), file_size)
             if inspect.isawaitable(r):

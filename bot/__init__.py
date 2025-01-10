@@ -26,9 +26,26 @@ from telethon import Button, TelegramClient, errors, events, functions, types
 from telethon.sessions import StringSession
 from telethon.utils import pack_bot_file_id
 from .config import *
+import socket
+
+# Optimize socket buffer size
+socket.SO_RCVBUF = 1024 * 1024 * 2  # 2MB receive buffer
+socket.SO_SNDBUF = 1024 * 1024 * 2  # 2MB send buffer
+
+# Enable TCP keep-alive
+socket_options = [
+    (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+    (socket.SOL_TCP, socket.TCP_NODELAY, 1),
+]
+
+try:
+    import uvloop
+    uvloop.install()
+    LOGS.info("uvloop installed successfully")
+except ImportError:
+    LOGS.info("uvloop not available")
+
 LOG_FILE_NAME = "TG-videoCompress@Log.txt"
-
-
 
 if os.path.exists(LOG_FILE_NAME):
     with open(LOG_FILE_NAME, "r+") as f_d:

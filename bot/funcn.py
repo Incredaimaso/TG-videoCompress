@@ -288,13 +288,11 @@ async def fast_download(e, download_url, filename=None):
             ),
         )
 
-
     async def _maybe_await(value):
         if inspect.isawaitable(value):
             return await value
         else:
             return value
-
 
     async with aiohttp.ClientSession() as session:
         async with session.get(download_url, timeout=None) as response:
@@ -303,8 +301,12 @@ async def fast_download(e, download_url, filename=None):
             filename = os.path.join("downloads", filename)
             total_size = int(response.headers.get("content-length", 0)) or None
             downloaded_size = 0
+            
+            # Increased chunk size for faster downloads
+            chunk_size = 1024 * 1024 * 1  # 1MB chunks
+            
             with open(filename, "wb") as f:
-                async for chunk in response.content.iter_chunked(1024):
+                async for chunk in response.content.iter_chunked(chunk_size):
                     if chunk:
                         f.write(chunk)
                         downloaded_size += len(chunk)
