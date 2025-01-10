@@ -2,6 +2,7 @@
 #    Copyright (c) 2021 Danish_00
 #    Script Improved by Anshusharma
 
+import hashlib
 from .FastTelethon import download_file, upload_file
 from .funcn import *
 from .config import *
@@ -156,9 +157,30 @@ async def dl_link(event):
     os.remove(out)
     WORKING.clear()
 
+async def apply_watermark(input_file, watermark_file, output_file):
+    cmd = f"""ffmpeg -i "{input_file}" -i "{watermark_file}" -filter_complex "overlay=W-w-10:H-h-10" "{output_file}" -y"""
+    process = await asyncio.create_subprocess_shell(
+        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    await process.communicate()
+    return output_file
 
-
-
+async def encode_multiple(input_file, output_prefix, update_msg):
+    results = []
+    for quality, preset in FFMPEG_PRESETS.items():
+        out_file = f"{output_prefix}_{quality}.mkv"
+        cmd = f"""ffmpeg -i "{input_file}" {preset} "{out_file}" -y"""
+        
+        process = await asyncio.create_subprocess_shell(
+            cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
+        await process.communicate()
+        if os.path.exists(out_file):
+            results.append((quality, out_file))
+            
+        await update_msg.edit(f"Encoded {len(results)}/{len(FFMPEG_PRESETS)} qualities")
+    
+    return results
 
 async def encod(event):
     try:
@@ -282,6 +304,20 @@ async def encod(event):
 
         status_task = asyncio.create_task(update_status())
         
+        # Calculate MD5 hash of downloaded file
+        file_hash = hashlib.md5(open(dl,'rb').read()).hexdigest()
+        cache_path = os.path.join(CACHE_DIR, file_hash)
+        
+        if os.path.exists(cache_path):
+            # If file exists in cache, use cached version
+            await xxx.edit("Found in cache! Using cached version...")
+            dl = cache_path
+        else:
+            # If not in cache, save current file to cache
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            shutil.copy2(dl, cache_path)
+            await xxx.edit("File cached for future use...")
+
         cmd = f"""ffmpeg -i "{dl}" {ffmpegcode[0]} "{out}" -y"""
         process = await asyncio.create_subprocess_shell(
             cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -332,3 +368,14 @@ async def encod(event):
     except BaseException as er:
         LOGS.info(er)
         WORKING.clear()
+
+# Add new command handler for watermark
+async def set_watermark(event):
+    if not event.photo:
+        return await event.reply("Please send an image to set as watermark")
+    
+    try:
+        await event.client.download_media(event.media, file=WATERMARK_FILE)
+        await event.reply("Watermark set successfully!")
+    except Exception as e:
+        await event.reply(f"Error setting watermark: {str(e)}")
