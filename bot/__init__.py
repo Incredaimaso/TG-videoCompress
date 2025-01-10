@@ -73,17 +73,25 @@ LOGS = logging.getLogger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
 
+# Add download retry configuration
+DOWNLOAD_RETRIES = 3
+CHUNK_SIZE = 524288  # 512KB chunks
+
 class RetryingMTProtoSender(MTProtoSender):
     async def _send(self, *args, **kwargs):
-        for retry in range(MAX_RETRIES):
+        last_error = None
+        for retry in range(DOWNLOAD_RETRIES):
             try:
                 return await super()._send(*args, **kwargs)
             except (errors.FloodWaitError, errors.ServerError) as e:
-                if retry == MAX_RETRIES - 1:
-                    raise
-                wait_time = getattr(e, 'seconds', RETRY_DELAY)
+                last_error = e
+                if retry == DOWNLOAD_RETRIES - 1:
+                    raise last_error
+                wait_time = getattr(e, 'seconds', 1)
                 await asyncio.sleep(wait_time)
                 continue
+            except Exception as e:
+                raise e
 
 # Use the custom sender
 MTProtoSender = RetryingMTProtoSender

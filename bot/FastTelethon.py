@@ -85,17 +85,24 @@ class DownloadSender:
     async def next(self) -> Optional[bytes]:
         if not self.remaining:
             return None
-        # Fix the chunk size limit to comply with Telegram's limits
-        self.request.limit = min(1024 * 1024, 1048576)  # Max 1MB chunks, minimum 1KB
-        try:
-            result = await self.client._call(self.sender, self.request)
-            self.remaining -= 1
-            self.request.offset += self.stride
-            return result.bytes
-        except (errors.FileMigrateError, errors.FilePartMissingError) as e:
-            log.info(f"File download error: {str(e)}")
-            await asyncio.sleep(1)
-            return await self.next()
+        
+        # Fix limit to comply with Telegram's limits (1MB = 1048576 bytes)
+        chunk_size = min(524288, 1048576)  # Use 512KB chunks
+        self.request.limit = chunk_size
+        
+        for _ in range(3):  # Add retry mechanism
+            try:
+                result = await self.client._call(self.sender, self.request)
+                self.remaining -= 1
+                self.request.offset += self.stride
+                return result.bytes
+            except (errors.FloodWaitError, errors.ServerError, errors.FileReferenceExpiredError) as e:
+                await asyncio.sleep(1)
+                continue
+            except Exception as e:
+                log.error(f"Download error: {str(e)}")
+                break
+        return None
 
     def disconnect(self) -> Awaitable[None]:
         return self.sender.disconnect()
@@ -174,12 +181,12 @@ class ParallelTransferrer:
 
     @staticmethod
     def _get_connection_count(
-        file_size: int, max_count: int = 20, full_size: int = 100 * 1024 * 1024
+        file_size: int, max_count: int = 10, full_size: int = 100 * 1024 * 1024
     ) -> int:
-        # Adjust connection count to prevent too many simultaneous connections
+        # Reduce max connections to prevent errors
         if file_size > full_size:
-            return min(20, max_count)  # Maximum 20 connections
-        return max(min(math.ceil((file_size / full_size) * max_count), 20), 4)  # Between 4 and 20
+            return min(10, max_count)
+        return max(math.ceil((file_size / full_size) * max_count), 2)
 
     async def _init_download(
         self, connections: int, file: TypeLocation, part_count: int, part_size: int
@@ -305,10 +312,13 @@ class ParallelTransferrer:
         part_size_kb: Optional[float] = None,
         connection_count: Optional[int] = None,
     ) -> AsyncGenerator[bytes, None]:
-        # Adjust part size to be within Telegram's limits
         connection_count = connection_count or self._get_connection_count(file_size)
-        part_size = (part_size_kb or utils.get_appropriated_part_size(file_size)) * 1024
-        part_size = min(part_size, 1048576)  # Ensure part size doesn't exceed 1MB
+        
+        # Ensure part size is within limits
+        part_size = (part_size_kb or 512) * 1024  # Default to 512KB parts
+        if part_size > 524288:  # Max 512KB
+            part_size = 524288
+            
         part_count = math.ceil(file_size / part_size)
 
         await self._init_download(connection_count, file, part_count, part_size)
