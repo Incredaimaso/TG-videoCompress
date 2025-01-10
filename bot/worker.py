@@ -182,6 +182,70 @@ async def encode_multiple(input_file, output_prefix, update_msg):
     
     return results
 
+async def get_ffmpeg_progress(process, total_duration, nn, filename):
+    """Extract progress info from FFmpeg stderr and update the message"""
+    last_edit = 0
+    while True:
+        try:
+            if process.stderr is None:
+                break
+            
+            line = await process.stderr.readline()
+            if not line:
+                break
+                
+            line = line.decode('utf-8')
+            
+            # Extract time
+            if "time=" in line:
+                time_in_line = line.split("time=")[1].split()[0]
+                # Convert time to seconds
+                try:
+                    if ":" in time_in_line:
+                        current_time = sum(float(x) * 60 ** i for i, x in enumerate(reversed(time_in_line.split(":"))))
+                    else:
+                        current_time = float(time_in_line)
+                        
+                    # Calculate progress percentage
+                    progress = (current_time / total_duration) * 100
+                    speed = line.split("speed=")[1].strip().split()[0]
+                    
+                    # Update message every 2 seconds to avoid flood
+                    if time.time() - last_edit > 2:
+                        await nn.edit(
+                            f"**🗜 Encoding Progress**\n\n"
+                            f"**File:** `{filename}`\n"
+                            f"**Progress:** {progress:.2f}%\n"
+                            f"**Speed:** {speed}\n"
+                            f"**ETA:** {line.split('time=')[1].split('bitrate=')[0].strip()}"
+                        )
+                        last_edit = time.time()
+                except:
+                    continue
+        except Exception as e:
+            LOGS.info(f"Progress update error: {str(e)}")
+            await asyncio.sleep(2)
+
+async def get_video_duration(file_path):
+    """Get video duration using FFprobe"""
+    cmd = [
+        "ffprobe", 
+        "-v", 
+        "error", 
+        "-show_entries", 
+        "format=duration", 
+        "-of", 
+        "default=noprint_wrappers=1:nokey=1", 
+        file_path
+    ]
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, _ = await process.communicate()
+    return float(stdout.decode('utf-8').strip())
+
 async def encod(event):
     try:
         if not event.is_private:
@@ -318,12 +382,33 @@ async def encod(event):
             shutil.copy2(dl, cache_path)
             await xxx.edit("File cached for future use...")
 
-        cmd = f"""ffmpeg -i "{dl}" {ffmpegcode[0]} "{out}" -y"""
+        nn = await e.edit("**🗜 Getting video information...**")
+    
+        # Get video duration
+        total_duration = await get_video_duration(dl)
+    
+        # Modified FFmpeg command to show progress
+        cmd = f"""ffmpeg -i "{dl}" {ffmpegcode[0]} "{out}" -y -progress pipe:1"""
+    
         process = await asyncio.create_subprocess_shell(
-            cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
+    
+        # Start progress tracking
+        progress_task = asyncio.create_task(
+            get_ffmpeg_progress(process, total_duration, nn, newFile)
+        )
+    
+        # Wait for encoding to complete
         stdout, stderr = await process.communicate()
-        er = stderr.decode()
+    
+        try:
+            progress_task.cancel()
+        except:
+            pass
+
         try:
             status_task.cancel()  # Stop the status updates
         except:

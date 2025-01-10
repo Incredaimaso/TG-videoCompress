@@ -25,6 +25,7 @@ import psutil
 from telethon import Button, TelegramClient, errors, events, functions, types
 from telethon.sessions import StringSession
 from telethon.utils import pack_bot_file_id
+from telethon.network import MTProtoSender
 from .config import *
 import socket
 
@@ -67,6 +68,25 @@ logging.basicConfig(
 logging.getLogger("FastTelethon").setLevel(logging.INFO)
 logging.getLogger("urllib3").setLevel(logging.INFO)
 LOGS = logging.getLogger(__name__)
+
+# Add connection retry logic
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # seconds
+
+class RetryingMTProtoSender(MTProtoSender):
+    async def _send(self, *args, **kwargs):
+        for retry in range(MAX_RETRIES):
+            try:
+                return await super()._send(*args, **kwargs)
+            except (errors.FloodWaitError, errors.ServerError) as e:
+                if retry == MAX_RETRIES - 1:
+                    raise
+                wait_time = getattr(e, 'seconds', RETRY_DELAY)
+                await asyncio.sleep(wait_time)
+                continue
+
+# Use the custom sender
+MTProtoSender = RetryingMTProtoSender
 
 try:
     bot = TelegramClient(None, APP_ID, API_HASH)
