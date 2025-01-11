@@ -7,6 +7,8 @@ from .FastTelethon import download_file, upload_file
 from .funcn import *
 from .config import *
 import asyncio
+import aiohttp
+import inspect
 
 
 # Create connection pool for FFmpeg processes
@@ -162,6 +164,47 @@ async def dl_link(event):
     os.remove(out)
     WORKING.clear()
 
+async def fast_download(e, download_url, filename=None):
+    def progress_callback(d, t):
+        return (
+            asyncio.get_event_loop().create_task(
+                progress(
+                    d,
+                    t,
+                    e,
+                    time.time(),
+                    f"** Downloading video from {download_url}**",
+                )
+            ),
+        )
+
+    async def _maybe_await(value):
+        if inspect.isawaitable(value):
+            return await value
+        else:
+            return value
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(download_url, timeout=None) as response:
+            if not filename:
+                filename = download_url.rpartition("/")[-1]
+            filename = os.path.join("downloads", filename)
+            total_size = int(response.headers.get("content-length", 0)) or None
+            downloaded_size = 0
+            
+            # Increase chunk size for faster downloads
+            chunk_size = 1024 * 1024 * 2  # 2MB chunks
+            
+            with open(filename, "wb") as f:
+                async for chunk in response.content.iter_chunked(chunk_size):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        await _maybe_await(
+                            progress_callback(downloaded_size, total_size)
+                        )
+            return filename
+
 async def apply_watermark(input_file, watermark_file, output_file):
     cmd = f"""ffmpeg -i "{input_file}" -i "{watermark_file}" -filter_complex "overlay=W-w-10:H-h-10" "{output_file}" -y"""
     process = await asyncio.create_subprocess_shell(
@@ -291,11 +334,12 @@ async def encode_video(input_file, output_prefix, status_msg, quality):
     return f"{output_prefix}_{quality}.mkv"
 
 async def encod(event):
+    nn = None  # Initialize nn to avoid UnboundLocalError
     try:
         if not event.is_private:
             return
         event.sender
-        if str(event.sender_id) not in OWNER and event.sender_id !=DEV:
+        if str(event.sender_id) not in OWNER and event.sender_id != DEV:
             return await event.reply("**Sorry You're not An Authorised User!**")
         if not event.media:
             return
@@ -517,6 +561,8 @@ async def encod(event):
         WORKING.clear()
     except Exception as er:
         LOGS.error(f"Main error: {str(er)}")
+        if nn:
+            await nn.edit(f"**❌ Error:**\n`{str(er)}`")
         if 'progress_task' in locals():
             progress_task.cancel()
         WORKING.clear()
@@ -578,7 +624,8 @@ async def encod(event):
         
     except Exception as er:
         LOGS.error(f"Main encoding error: {str(er)}")
-        await nn.edit(f"**❌ Error:**\n`{str(er)}`")
+        if nn:
+            await nn.edit(f"**❌ Error:**\n`{str(er)}`")
     finally:
         WORKING.clear()
 
