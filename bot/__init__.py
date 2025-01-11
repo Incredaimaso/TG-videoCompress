@@ -50,25 +50,33 @@ try:
 except ImportError:
     LOGS.info("uvloop not available")
 
-LOG_FILE_NAME = "TG-videoCompress@Log.txt"
+# Setup logging with absolute path
+LOG_FILE_NAME = os.path.join(os.getcwd(), "TG-videoCompress@Log.txt")
 
-if os.path.exists(LOG_FILE_NAME):
+# Initialize log file
+if not os.path.exists(LOG_FILE_NAME):
+    with open(LOG_FILE_NAME, "w") as f:
+        f.write("")
+elif os.path.exists(LOG_FILE_NAME):
     with open(LOG_FILE_NAME, "r+") as f_d:
         f_d.truncate(0)
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%d-%b-%y %H:%M:%S",
+    format='[%(levelname)s] %(asctime)s - %(name)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
         RotatingFileHandler(
             LOG_FILE_NAME,
-            maxBytes=2097152000,
-            backupCount=10
+            maxBytes=1024 * 1024 * 2,  # 2 MB
+            backupCount=5,
+            encoding='utf-8'
         ),
         logging.StreamHandler()
     ]
 )
+
 logging.getLogger("FastTelethon").setLevel(logging.INFO)
 logging.getLogger("urllib3").setLevel(logging.INFO)
 LOGS = logging.getLogger(__name__)

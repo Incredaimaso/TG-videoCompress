@@ -49,7 +49,11 @@ async def _(e):
 async def _(e):
     if str(e.sender_id) not in OWNER and e.sender_id !=DEV:
         return e.reply("**Sorry You're not An Authorised User!**")
-    await getlogs(e)
+    try:
+        await getlogs(e)
+    except Exception as er:
+        LOGS.error(f"Log command error: {str(er)}")
+        await e.reply("**Error getting logs. Check bot console.**")
 
 
 @bot.on(events.NewMessage(pattern="/cmds"))
@@ -154,7 +158,7 @@ async def _(event):
         
         # Download new thumbnail with correct path
         thumb_path = await event.client.download_media(event.media, "thumb.jpg")
-        if thumb_path and os.path.exists(thumb_path):
+        if (thumb_path and os.path.exists(thumb_path)):
             await event.reply("**Thumbnail Saved Successfully.**")
         else:
             raise Exception("Failed to save thumbnail")

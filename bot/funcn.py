@@ -224,20 +224,37 @@ async def getlogs(e):
     if str(e.sender_id) not in OWNER and e.sender_id != DEV:
         return
     try:
-        with open(LOG_FILE_NAME, 'r') as file:
-            log_content = file.read()
-            if len(log_content) > 4000:
-                # If log is too long, send as file
-                with open(LOG_FILE_NAME, 'rb') as doc:
-                    await e.client.send_file(
-                        e.chat_id,
-                        doc,
-                        caption="**Bot Logs**",
-                        force_document=True
-                    )
-            else:
-                await e.reply(f"**Bot Logs:**\n\n```{log_content}```")
+        log_path = os.path.join(os.getcwd(), LOG_FILE_NAME)
+        if not os.path.exists(log_path):
+            return await e.reply("**No logs found!**")
+            
+        with open(log_path, 'r', encoding='utf-8') as file:
+            logs = file.read().strip()
+            
+        if not logs:
+            return await e.reply("**Log file is empty!**")
+            
+        if len(logs) > 4000:
+            # For large logs, send as file
+            with open(log_path, 'rb') as doc:
+                await e.client.send_file(
+                    e.chat_id,
+                    doc,
+                    caption="**Bot Logs**",
+                    force_document=True,
+                    file_name="bot_logs.txt"
+                )
+        else:
+            # For smaller logs, send as text
+            chunks = [logs[i:i+4000] for i in range(0, len(logs), 4000)]
+            for i, chunk in enumerate(chunks):
+                if i == 0:
+                    await e.reply(f"**Bot Logs:**\n\n```{chunk}```")
+                else:
+                    await e.reply(f"```{chunk}```")
+                    
     except Exception as er:
+        LOGS.error(f"Error getting logs: {str(er)}")
         await e.reply(f"**Error getting logs:**\n\n`{str(er)}`")
 
 
