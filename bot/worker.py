@@ -335,6 +335,7 @@ async def encode_video(input_file, output_prefix, status_msg, quality):
 
 async def encod(event):
     nn = None  # Initialize nn to avoid UnboundLocalError
+    e = None  # Initialize e to avoid UnboundLocalError
     try:
         if not event.is_private:
             return
