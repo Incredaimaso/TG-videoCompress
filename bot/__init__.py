@@ -29,6 +29,10 @@ from telethon.network import MTProtoSender
 from .config import *
 import socket
 
+# Enable tracemalloc for better error tracking
+import tracemalloc
+tracemalloc.start()
+
 # Optimize socket buffer size
 socket.SO_RCVBUF = 1024 * 1024 * 2  # 2MB receive buffer
 socket.SO_SNDBUF = 1024 * 1024 * 2  # 2MB send buffer
@@ -95,6 +99,31 @@ class RetryingMTProtoSender(MTProtoSender):
 
 # Use the custom sender
 MTProtoSender = RetryingMTProtoSender
+
+# Initialize bot
+try:
+    bot = TelegramClient(None, APP_ID, API_HASH)
+except Exception as e:
+    LOGS.info("Environment vars are missing! Kindly recheck.")
+    LOGS.info("Bot is quiting...")
+    LOGS.info(str(e))
+    exit()
+
+# Add error handler
+@bot.on(events.MessageEdited)
+async def handle_edited_message(event):
+    try:
+        await event.respond(event.text)
+    except Exception as e:
+        LOGS.error(f"Edit handler error: {str(e)}")
+
+# Improve coroutine handling
+async def safe_reply(event, text):
+    try:
+        return await event.reply(text)
+    except Exception as e:
+        LOGS.error(f"Reply error: {str(e)}")
+        return None
 
 try:
     bot = TelegramClient(None, APP_ID, API_HASH)
