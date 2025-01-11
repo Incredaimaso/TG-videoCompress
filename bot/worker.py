@@ -307,6 +307,7 @@ async def get_video_duration(file_path):
 async def process_media(process, nn, filename):
     """Basic FFmpeg process monitoring"""
     try:
+        buffer = ""
         while True:
             line = await process.stderr.readline()
             if not line:
