@@ -262,22 +262,33 @@ async def get_video_duration(file_path):
     return float(stdout.decode('utf-8').strip())
 
 async def process_media(process, nn, filename):
-    """Simplified FFmpeg monitoring"""
+    """Basic FFmpeg process monitoring"""
     try:
         while True:
             line = await process.stderr.readline()
             if not line:
                 break
                 
-            line = line.decode('utf-8', errors='ignore')
-            if "time=" in line:
-                try:
-                    progress = line.split("time=")[1].split()[0]
-                    await nn.edit(f"**🗜 Encoding: {filename}**\n`{progress}`")
-                except:
-                    continue
+            text = line.decode('utf-8').strip()
+            if "time=" in text:
+                # Update less frequently to avoid flood
+                await asyncio.sleep(3)
+                await nn.edit(f"**🎥 Encoding: {filename}**\n`{text}`")
+                
     except Exception as e:
-        LOGS.error(str(e))
+        LOGS.error(f"Error in process_media: {str(e)}")
+
+async def encode_video(input_file, output_prefix, status_msg, quality):
+    """Encode video to specific quality"""
+    cmd = f"""ffmpeg -i "{input_file}" {FFMPEG_PRESETS[quality]} "{output_prefix}_{quality}.mkv" -y"""
+    process = await asyncio.create_subprocess_shell(
+        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    
+    await status_msg.edit(f"**🎥 Encoding {quality}...**")
+    await process.communicate()
+    
+    return f"{output_prefix}_{quality}.mkv"
 
 async def encod(event):
     try:
@@ -309,7 +320,7 @@ async def encod(event):
                 "**Added This File in Queue**"
             )
         WORKING.append(1)
-        xxx = await event.reply("** Downloading...**")
+        xxx = await event.reply("**⬇️ Downloading...**")
         s = dt.now()
         ttt = time.time()
         dir = f"downloads/"
@@ -475,7 +486,7 @@ async def encod(event):
         ees = dt.now()
         ttt = time.time()
         await nn.delete()
-        nnn = await e.client.send_message(e.chat_id, "** Uploading...**")
+        nnn = await e.client.send_message(e.chat_id, "**⬆️ Uploading...**")
         
         # Optimize upload parameters
         upload_chunk_size = 1024 * 1024 * 8  # 8MB chunks
@@ -512,6 +523,64 @@ async def encod(event):
     finally:
         if 'connection_pool' in locals():
             await connection_pool.release()
+
+    try:
+        # ...existing download code...
+        
+        nn = await e.edit("**🎬 Starting Multi-Quality Encoding...**")
+        
+        qualities = ["480p", "720p", "1080p"]
+        encoded_files = []
+        
+        base_name = f"encode/{Path(dl).stem}"
+        
+        for quality in qualities:
+            try:
+                await nn.edit(f"**🎥 Starting {quality} Encode...**")
+                output_file = await encode_video(dl, base_name, nn, quality)
+                
+                if os.path.exists(output_file):
+                    # Upload current quality
+                    org = int(Path(dl).stat().st_size)
+                    com = int(Path(output_file).stat().st_size)
+                    pe = 100 - ((com / org) * 100)
+                    per = str(f"{pe:.2f}") + "%"
+                    
+                    await nn.edit(f"**⬆️ Uploading {quality}...**")
+                    
+                    dk = f"<b>File Name:</b> {Path(dl).stem}\n<b>Quality:</b> {quality}\n<b>Original Size:</b> {hbs(org)}\n<b>Encoded Size:</b> {hbs(com)}\n<b>Saved:</b> {per}"
+                    
+                    await event.client.send_file(
+                        event.chat_id,
+                        file=output_file,
+                        force_document=True,
+                        caption=dk,
+                        thumb=thum,
+                        parse_mode="html"
+                    )
+                    
+                    encoded_files.append(output_file)
+                
+            except Exception as e:
+                await nn.edit(f"**❌ Error encoding {quality}:**\n`{str(e)}`")
+                LOGS.error(f"Error encoding {quality}: {str(e)}")
+                continue
+        
+        # Cleanup
+        try:
+            os.remove(dl)  # Remove original file
+            for f in encoded_files:  # Remove encoded files
+                os.remove(f)
+        except:
+            pass
+            
+        await nn.edit("**✅ All qualities encoded and uploaded!**")
+        
+    except Exception as er:
+        LOGS.error(f"Main encoding error: {str(er)}")
+        await nn.edit(f"**❌ Error:**\n`{str(er)}`")
+    finally:
+        WORKING.clear()
 
 # Add new command handler for watermark
 async def set_watermark(event):
