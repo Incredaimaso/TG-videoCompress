@@ -65,7 +65,7 @@ def stdr(seconds: int) -> str:
 def ts(milliseconds: int) -> str:
     seconds, milliseconds = divmod(int(milliseconds), 1000)
     minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
+    hours, minutes = divmod(hours, 60)
     days, hours = divmod(hours, 24)
     tmp = (
         ((str(days) + "d, ") if days else "")
@@ -78,47 +78,21 @@ def ts(milliseconds: int) -> str:
 
 
 def hbs(size):
-    if not size:
-        return ""
-    power = 2 ** 10
-    raised_to_pow = 0
-    dict_power_n = {0: "B", 1: "K", 2: "M", 3: "G", 4: "T", 5: "P"}
-    while size > power:
-        size /= power
-        raised_to_pow += 1
-    return str(round(size, 2)) + " " + dict_power_n[raised_to_pow] + "B"
+    """Human readable size"""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} TB"
 
 
-async def progress(current, total, event, start, type_of_ps, file=None):
-    now = time.time()
-    diff = now - start
-    if round(diff % 2.00) == 0 or current == total:  # Changed from 4.00 to 2.00 seconds
-        percentage = current * 100 / total
-        speed = current / diff
-        time_to_completion = round((total - current) / speed) * 1000
-        progress_str = "{0}{1}** {2}%**\n\n".format(
-            "".join(["●" for i in range(math.floor(percentage / 10))]),
-            "".join(["○" for i in range(10 - math.floor(percentage / 10))]),
-            round(percentage, 2),
-        )
-        tmp = (
-            progress_str
-            + "** Progress:** {0} \n\n** Total Size:** {1}\n\n** Speed:** {2}/s\n\n** Time Left:** {3}\n".format(
-                hbs(current),
-                hbs(total),
-                hbs(speed),
-                ts(time_to_completion),
-            )
-        )
-        try:
-            if file:
-                await event.edit(
-                    "{}\n\nFile Name: {}\n\n{}".format(type_of_ps, file, tmp)
-                )
-            else:
-                await event.edit("{}\n\n{}".format(type_of_ps, tmp))
-        except Exception as e:
-            LOGS.info(str(e))
+async def progress(current, total, event, start, type_of_ps):
+    """Simplified progress display"""
+    if round(time.time() - start) % 4 != 0:  # Update every 4 seconds
+        return
+        
+    percentage = round(current * 100 / total, 1)
+    await event.edit(f"**{type_of_ps}:** {percentage}%")
 
 
 async def test(event):

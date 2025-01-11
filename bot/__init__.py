@@ -64,48 +64,27 @@ elif os.path.exists(LOG_FILE_NAME):
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(levelname)s] %(asctime)s - %(name)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        RotatingFileHandler(
-            LOG_FILE_NAME,
-            maxBytes=1024 * 1024 * 2,  # 2 MB
-            backupCount=5,
-            encoding='utf-8'
-        ),
-        logging.StreamHandler()
-    ]
+    format='[%(levelname)s] %(asctime)s - %(message)s',
+    handlers=[logging.StreamHandler()]
 )
 
-logging.getLogger("FastTelethon").setLevel(logging.INFO)
-logging.getLogger("urllib3").setLevel(logging.INFO)
 LOGS = logging.getLogger(__name__)
 
-# Add connection retry logic
-MAX_RETRIES = 3
-RETRY_DELAY = 1  # seconds
-
-# Add download retry configuration
-DOWNLOAD_RETRIES = 3
-CHUNK_SIZE = 524288  # 512KB chunks
+# Simplified retry logic
+MAX_RETRIES = 2
+CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 
 class RetryingMTProtoSender(MTProtoSender):
     async def _send(self, *args, **kwargs):
-        last_error = None
-        for retry in range(DOWNLOAD_RETRIES):
+        for retry in range(MAX_RETRIES):
             try:
                 return await super()._send(*args, **kwargs)
             except (errors.FloodWaitError, errors.ServerError) as e:
-                last_error = e
-                if retry == DOWNLOAD_RETRIES - 1:
-                    raise last_error
-                wait_time = getattr(e, 'seconds', 1)
-                await asyncio.sleep(wait_time)
+                if retry == MAX_RETRIES - 1:
+                    raise
+                await asyncio.sleep(1)
                 continue
-            except Exception as e:
-                raise e
 
-# Use the custom sender
 MTProtoSender = RetryingMTProtoSender
 
 # Initialize bot

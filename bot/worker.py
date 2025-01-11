@@ -6,6 +6,11 @@ import hashlib
 from .FastTelethon import download_file, upload_file
 from .funcn import *
 from .config import *
+import asyncio
+
+
+# Create connection pool for FFmpeg processes
+connection_pool = asyncio.Semaphore(3)  # Limit to 3 concurrent processes
 
 
 async def stats(e):
@@ -256,6 +261,24 @@ async def get_video_duration(file_path):
     stdout, _ = await process.communicate()
     return float(stdout.decode('utf-8').strip())
 
+async def process_media(process, nn, filename):
+    """Simplified FFmpeg monitoring"""
+    try:
+        while True:
+            line = await process.stderr.readline()
+            if not line:
+                break
+                
+            line = line.decode('utf-8', errors='ignore')
+            if "time=" in line:
+                try:
+                    progress = line.split("time=")[1].split()[0]
+                    await nn.edit(f"**🗜 Encoding: {filename}**\n`{progress}`")
+                except:
+                    continue
+    except Exception as e:
+        LOGS.error(str(e))
+
 async def encod(event):
     try:
         if not event.is_private:
@@ -420,6 +443,23 @@ async def encod(event):
         except:
             pass
 
+        async with connection_pool.get():
+            process = await asyncio.create_subprocess_exec(
+                *cmd.split(),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            # Handle process I/O
+            await process_media(process, nn, newFile)
+            
+            # Wait for process to complete
+            try:
+                await asyncio.wait_for(process.wait(), timeout=3600)  # 1 hour timeout
+            except asyncio.TimeoutError:
+                process.kill()
+                raise Exception("Process timed out")
+
         try:
             status_task.cancel()  # Stop the status updates
         except:
@@ -469,6 +509,9 @@ async def encod(event):
         if 'progress_task' in locals():
             progress_task.cancel()
         WORKING.clear()
+    finally:
+        if 'connection_pool' in locals():
+            await connection_pool.release()
 
 # Add new command handler for watermark
 async def set_watermark(event):
