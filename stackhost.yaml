@@ -8,7 +8,7 @@ commands:
   build:
     - "pip3 install -r requirements.txt"
   package:
-    - "build-essential python3-dev git curl nano ffmpeg inxi python3-pil python3-requests"
+    - "build-essential python3-dev git curl nano ffmpeg inxi"
     
   start:
     - "python3 -m bot"
