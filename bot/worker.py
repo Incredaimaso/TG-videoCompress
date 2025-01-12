@@ -9,10 +9,13 @@ from .config import *
 import asyncio
 import aiohttp
 import inspect
+import qbittorrentapi
 
 # Global cancel event
 cancel_event = asyncio.Event()
 
+# Initialize qBittorrent client
+qb = qbittorrentapi.Client(host='localhost', port=8080, username='admin', password='your_password')
 
 # Create connection pool for FFmpeg processes
 connection_pool = asyncio.Semaphore(3)  # Limit to 3 concurrent processes
@@ -661,3 +664,53 @@ async def cancel_callback(event):
         os.remove(out)
     except:
         pass
+
+async def download_torrent(magnet_link, download_dir):
+    """Download torrent using qBittorrent API"""
+    try:
+        qb.auth_log_in()
+        qb.torrents_add(urls=magnet_link, save_path=download_dir)
+        print('Torrent added successfully')
+        
+        # Wait for the download to complete
+        while True:
+            torrent = qb.torrents_info()[0]
+            if torrent.state == 'downloading':
+                print(f'Downloading: {torrent.progress * 100:.2f}% complete')
+                await asyncio.sleep(5)
+            elif torrent.state == 'pausedUP' or torrent.state == 'stalledUP':
+                print('Download Complete')
+                break
+            else:
+                await asyncio.sleep(5)
+        
+        # Get the downloaded file path
+        torrent_info = qb.torrents_info()[0]
+        file_path = os.path.join(download_dir, torrent_info.name)
+        return file_path
+    except Exception as e:
+        print(f'Error downloading torrent: {str(e)}')
+        return None
+
+async def dl_torrent(event):
+    if not event.is_private:
+        return
+    if str(event.sender_id) not in OWNER and event.sender_id != DEV:
+        return
+    magnet_link = event.text.split()[1]
+    if not magnet_link:
+        return await event.reply("**Please provide a valid magnet link.**")
+    
+    download_dir = "downloads/"
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+    
+    await event.reply("**Starting Torrent Download...**")
+    file_path = await download_torrent(magnet_link, download_dir)
+    
+    if file_path:
+        await event.reply(f"**Torrent Download Complete:**\n`{file_path}`")
+        # Proceed with encoding the downloaded file
+        await encod(event, file_path)
+    else:
+        await event.reply("**Failed to download torrent.**")
