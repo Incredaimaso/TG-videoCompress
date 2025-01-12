@@ -9,6 +9,10 @@ from .config import *
 import asyncio
 import aiohttp
 import inspect
+import libtorrent as lt
+
+# Global cancel event
+cancel_event = asyncio.Event()
 
 
 # Create connection pool for FFmpeg processes
@@ -334,24 +338,58 @@ async def encode_video(input_file, output_prefix, status_msg, quality):
     
     return f"{output_prefix}_{quality}.mkv"
 
-async def encod(event):
+async def update_status(nn, dl, out, processing_file_name, ttt, cancel_event):
+    last_msg = ""
+    while not cancel_event.is_set():
+        try:
+            if Path(dl).exists():
+                ov = hbs(int(Path(dl).stat().st_size))
+                cur_msg = f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B"
+                
+                if Path(out).exists():
+                    ot = hbs(int(Path(out).stat().st_size))
+                    ov = hbs(int(Path(dl).stat().st_size))
+                    percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
+                    cur_msg = (
+                        f"**🗜 Compressing: {percentage}%**\n\n"
+                        f"File: {processing_file_name}\n"
+                        f"Downloaded Size: {ov}\n"
+                        f"Compressed Size: {ot}"
+                    )
+                
+                if cur_msg != last_msg:
+                    try:
+                        await nn.edit(cur_msg)
+                        last_msg = cur_msg
+                    except Exception as e:
+                        LOGS.info(f"Edit error: {str(e)}")
+                
+            await asyncio.sleep(3)
+            
+        except Exception as e:
+            LOGS.info(f"Update status error: {str(e)}")
+            await asyncio.sleep(3)
+
+async def encod(event, file_path=None):
     nn = None  # Initialize nn to avoid UnboundLocalError
     e = None  # Initialize e to avoid UnboundLocalError
+    cancel_event = asyncio.Event()  # Event to handle cancellation
     try:
         if not event.is_private:
             return
         event.sender
         if str(event.sender_id) not in OWNER and event.sender_id != DEV:
             return await event.reply("**Sorry You're not An Authorised User!**")
-        if not event.media:
+        if not event.media and not file_path:
             return
-        if hasattr(event.media, "document"):
-            if not event.media.document.mime_type.startswith(
-                ("video", "application/octet-stream")
-            ):
+        if not file_path:
+            if hasattr(event.media, "document"):
+                if not event.media.document.mime_type.startswith(
+                    ("video", "application/octet-stream")
+                ):
+                    return
+            else:
                 return
-        else:
-            return
         if WORKING or QUEUE:
             xxx = await event.reply("**Adding To Queue...**")
             # id = pack_bot_file_id(event.media)
@@ -370,40 +408,43 @@ async def encod(event):
         s = dt.now()
         ttt = time.time()
         dir = f"downloads/"
-        try:
-            if hasattr(event.media, "document"):
-                file = event.media.document
-                filename = event.file.name
-                if not filename:
-                    filename = "video_" + dt.now().isoformat("_", "seconds") + ".mp4"
-                dl = dir + filename
-                with open(dl, "wb") as f:
-                    ok = await download_file(
-                        client=event.client,
-                        location=file,
-                        out=f,
+        if not file_path:
+            try:
+                if hasattr(event.media, "document"):
+                    file = event.media.document
+                    filename = event.file.name
+                    if not filename:
+                        filename = "video_" + dt.now().isoformat("_", "seconds") + ".mp4"
+                    dl = dir + filename
+                    with open(dl, "wb") as f:
+                        ok = await download_file(
+                            client=event.client,
+                            location=file,
+                            out=f,
+                            progress_callback=lambda d, t: asyncio.get_event_loop().create_task(
+                                progress(
+                                    d,
+                                    t,
+                                    xxx,
+                                    ttt,
+                                    f"** Downloading**\n__{filename}__",
+                                )
+                            ),
+                        )
+                else:
+                    dl = await event.client.download_media(
+                        event.media,
+                        dir,
                         progress_callback=lambda d, t: asyncio.get_event_loop().create_task(
-                            progress(
-                                d,
-                                t,
-                                xxx,
-                                ttt,
-                                f"** Downloading**\n__{filename}__",
-                            )
+                            progress(d, t, xxx, ttt, f"** Downloading**\n__{filename}__")
                         ),
                     )
-            else:
-                dl = await event.client.download_media(
-                    event.media,
-                    dir,
-                    progress_callback=lambda d, t: asyncio.get_event_loop().create_task(
-                        progress(d, t, xxx, ttt, f"** Downloading**\n__{filename}__")
-                    ),
-                )
-        except Exception as er:
-            WORKING.clear()
-            LOGS.info(er)
-            return os.remove(dl)
+            except Exception as er:
+                WORKING.clear()
+                LOGS.info(er)
+                return os.remove(dl)
+        else:
+            dl = file_path
         es = dt.now()
         kk = dl.split("/")[-1]
         aa = kk.split(".")[-1]
@@ -417,46 +458,12 @@ async def encod(event):
         hehe = f"{out};{dl};0"
         wah = code(hehe)
         nn = await e.edit(
-            "**🗜 Compressing...\nPlease wait...**"
+            "**🗜 Compressing...\nPlease wait...**",
+            buttons=[Button.inline("Cancel", data="cancel")]
         )
         processing_file_name = newFile
         
-        async def update_status():
-            last_msg = ""
-            while True:
-                try:
-                    # Check for download file first
-                    if Path(dl).exists():
-                        ov = hbs(int(Path(dl).stat().st_size))
-                        cur_msg = f"**🗜 Compressing...**\n\nFile: {processing_file_name}\nDownloaded Size: {ov}\nCompressed: 0 B"
-                        
-                        # Then check for output file
-                        if Path(out).exists():
-                            ot = hbs(int(Path(out).stat().st_size))
-                            ov = hbs(int(Path(dl).stat().st_size))
-                            percentage = round((float(int(Path(out).stat().st_size)) / float(int(Path(dl).stat().st_size))) * 100, 2)
-                            cur_msg = (
-                                f"**🗜 Compressing: {percentage}%**\n\n"
-                                f"File: {processing_file_name}\n"
-                                f"Downloaded Size: {ov}\n"
-                                f"Compressed Size: {ot}"
-                            )
-                        
-                        # Only edit if message content has changed
-                        if cur_msg != last_msg:
-                            try:
-                                await nn.edit(cur_msg)
-                                last_msg = cur_msg
-                            except Exception as e:
-                                LOGS.info(f"Edit error: {str(e)}")
-                        
-                    await asyncio.sleep(3)  # Increase sleep time to 3 seconds
-                    
-                except Exception as e:
-                    LOGS.info(f"Update status error: {str(e)}")
-                    await asyncio.sleep(3)
-
-        status_task = asyncio.create_task(update_status())
+        status_task = asyncio.create_task(update_status(nn, dl, out, processing_file_name, ttt, cancel_event))
         
         # Calculate MD5 hash of downloaded file
         file_hash = hashlib.md5(open(dl,'rb').read()).hexdigest()
@@ -631,6 +638,54 @@ async def encod(event):
     finally:
         WORKING.clear()
 
+async def download_torrent(magnet_link, download_dir):
+    """Download torrent using libtorrent"""
+    ses = lt.session()
+    params = {
+        'save_path': download_dir,
+        'storage_mode': lt.storage_mode_t.storage_mode_sparse,
+    }
+    handle = lt.add_magnet_uri(ses, magnet_link, params)
+    ses.start_dht()
+
+    print('Downloading Metadata...')
+    while not handle.has_metadata():
+        await asyncio.sleep(1)
+    print('Got Metadata, Starting Torrent Download...')
+    
+    while handle.status().state != lt.torrent_status.seeding:
+        s = handle.status()
+        print(f'Downloading: {s.progress * 100:.2f}% complete (down: {s.download_rate / 1000:.2f} kB/s up: {s.upload_rate / 1000:.2f} kB/s peers: {s.num_peers})')
+        await asyncio.sleep(5)
+    
+    print('Download Complete')
+    return handle
+
+async def dl_torrent(event):
+    if not event.is_private:
+        return
+    if str(event.sender_id) not in OWNER and event.sender_id != DEV:
+        return
+    magnet_link = event.text.split()[1]
+    if not magnet_link:
+        return await event.reply("**Please provide a valid magnet link.**")
+    
+    download_dir = "downloads/"
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+    
+    await event.reply("**Starting Torrent Download...**")
+    handle = await download_torrent(magnet_link, download_dir)
+    
+    # Get the downloaded file path
+    torrent_info = handle.get_torrent_info()
+    file_path = os.path.join(download_dir, torrent_info.files()[0].path)
+    
+    await event.reply(f"**Torrent Download Complete:**\n`{file_path}`")
+    
+    # Proceed with encoding the downloaded file
+    await encod(event, file_path)
+
 # Add new command handler for watermark
 async def set_watermark(event):
     if not event.photo:
@@ -641,3 +696,17 @@ async def set_watermark(event):
         await event.reply("Watermark set successfully!")
     except Exception as e:
         await event.reply(f"Error setting watermark: {str(e)}")
+    global cancel_event
+    cancel_event.set()
+@bot.on(events.callbackquery.CallbackQuery(data=re.compile(b"cancel")))
+async def cancel_callback(event):
+    global dl, out  # Ensure dl and out are defined
+    cancel_event.set()
+    await event.edit("**❌ Process Cancelled!**")
+    WORKING.clear()
+    # Cleanup files if necessary
+    try:
+        os.remove(dl)
+        os.remove(out)
+    except:
+        pass

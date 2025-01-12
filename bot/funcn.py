@@ -65,7 +65,7 @@ def stdr(seconds: int) -> str:
 def ts(milliseconds: int) -> str:
     seconds, milliseconds = divmod(int(milliseconds), 1000)
     minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
+    hours, minutes = divmod(hours, 60)
     days, hours = divmod(hours, 24)
     tmp = (
         ((str(days) + "d, ") if days else "")

@@ -7,6 +7,9 @@ from .config import *
 from .worker import *
 from .devtools import *
 from .FastTelethon import *
+import asyncio
+
+cancel_event = asyncio.Event()
 LOGS.info("Starting...")
 
 try:
@@ -117,6 +120,11 @@ async def _(e):
         return e.reply("**Sorry You're not An Authorised User!**")
     await set_watermark(e)
     
+@bot.on(events.NewMessage(pattern="/torrent"))
+async def _(e):
+    if str(e.sender_id) not in OWNER and e.sender_id != DEV:
+        return e.reply("**Sorry You're not An Authorised User!**")
+    await dl_torrent(e)
 
 ########## Direct ###########
 
@@ -142,6 +150,22 @@ async def _(e):
 @bot.on(events.callbackquery.CallbackQuery(data=re.compile("help")))
 async def _(e):
     await help(e)
+
+@bot.on(events.callbackquery.CallbackQuery(data=re.compile(b"cancel")))
+async def cancel_callback(event):
+    cancel_event.set()
+    await event.edit("**❌ Process Cancelled!**")
+    WORKING.clear()
+    # Cleanup files if necessary
+    try:
+        dl = os.path.join('downloads', '')  # Path to download file
+        out = os.path.join('encode', '')    # Path to output file
+        if os.path.exists(dl):
+            os.remove(dl)
+        if os.path.exists(out):
+            os.remove(out)
+    except:
+        pass
 
 ########## AUTO ###########
 
