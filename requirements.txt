@@ -7,3 +7,4 @@ html_telegraph_poster
 lxml_html_clean
 python-ffmpeg
 uvloop
+Pillow

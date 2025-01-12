@@ -119,12 +119,6 @@ async def _(e):
     if str(e.sender_id) not in OWNER and e.sender_id !=DEV:
         return e.reply("**Sorry You're not An Authorised User!**")
     await set_watermark(e)
-    
-@bot.on(events.NewMessage(pattern="/torrent"))
-async def _(e):
-    if str(e.sender_id) not in OWNER and e.sender_id != DEV:
-        return e.reply("**Sorry You're not An Authorised User!**")
-    await dl_torrent(e)
 
 ########## Direct ###########
 

@@ -26,20 +26,26 @@ def init_thumbnail():
     try:
         # Check if thumbnail exists
         if not os.path.exists("thumb.jpg"):
-            # Try downloading from URL
+            # Try downloading from URL using requests
             if THUMB and THUMB.strip():
-                os.system(f"wget {THUMB} -O thumb.jpg")
+                import requests
+                response = requests.get(THUMB)
+                with open("thumb.jpg", "wb") as f:
+                    f.write(response.content)
             
-            # If download fails or no URL, create blank thumbnail
+            # If download fails or no URL, create blank thumbnail using PIL
             if not os.path.exists("thumb.jpg") or os.path.getsize("thumb.jpg") == 0:
-                # Create a 1x1 pixel black image as fallback
-                os.system("convert -size 1x1 xc:black thumb.jpg")
+                from PIL import Image
+                img = Image.new('RGB', (1, 1), color='black')
+                img.save("thumb.jpg")
                 LOGS.warning("Created blank thumbnail as fallback")
     except Exception as e:
         LOGS.error(f"Thumbnail initialization error: {str(e)}")
         # Ensure a blank thumbnail exists
         if not os.path.exists("thumb.jpg"):
-            os.system("convert -size 1x1 xc:black thumb.jpg")
+            from PIL import Image
+            img = Image.new('RGB', (1, 1), color='black')
+            img.save("thumb.jpg")
 
 # Initialize thumbnail
 init_thumbnail()

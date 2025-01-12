@@ -9,7 +9,6 @@ from .config import *
 import asyncio
 import aiohttp
 import inspect
-import libtorrent as lt
 
 # Global cancel event
 cancel_event = asyncio.Event()
@@ -637,54 +636,6 @@ async def encod(event, file_path=None):
             await nn.edit(f"**❌ Error:**\n`{str(er)}`")
     finally:
         WORKING.clear()
-
-async def download_torrent(magnet_link, download_dir):
-    """Download torrent using libtorrent"""
-    ses = lt.session()
-    params = {
-        'save_path': download_dir,
-        'storage_mode': lt.storage_mode_t.storage_mode_sparse,
-    }
-    handle = lt.add_magnet_uri(ses, magnet_link, params)
-    ses.start_dht()
-
-    print('Downloading Metadata...')
-    while not handle.has_metadata():
-        await asyncio.sleep(1)
-    print('Got Metadata, Starting Torrent Download...')
-    
-    while handle.status().state != lt.torrent_status.seeding:
-        s = handle.status()
-        print(f'Downloading: {s.progress * 100:.2f}% complete (down: {s.download_rate / 1000:.2f} kB/s up: {s.upload_rate / 1000:.2f} kB/s peers: {s.num_peers})')
-        await asyncio.sleep(5)
-    
-    print('Download Complete')
-    return handle
-
-async def dl_torrent(event):
-    if not event.is_private:
-        return
-    if str(event.sender_id) not in OWNER and event.sender_id != DEV:
-        return
-    magnet_link = event.text.split()[1]
-    if not magnet_link:
-        return await event.reply("**Please provide a valid magnet link.**")
-    
-    download_dir = "downloads/"
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
-    
-    await event.reply("**Starting Torrent Download...**")
-    handle = await download_torrent(magnet_link, download_dir)
-    
-    # Get the downloaded file path
-    torrent_info = handle.get_torrent_info()
-    file_path = os.path.join(download_dir, torrent_info.files()[0].path)
-    
-    await event.reply(f"**Torrent Download Complete:**\n`{file_path}`")
-    
-    # Proceed with encoding the downloaded file
-    await encod(event, file_path)
 
 # Add new command handler for watermark
 async def set_watermark(event):
