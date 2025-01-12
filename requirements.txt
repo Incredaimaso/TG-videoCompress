@@ -8,3 +8,4 @@ lxml_html_clean
 python-ffmpeg
 uvloop
 Pillow
+requests
